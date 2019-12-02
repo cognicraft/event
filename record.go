@@ -31,4 +31,15 @@ func Decode(data json.RawMessage, v interface{}) error {
 
 type Records []Record
 
+func (rs Records) Stream() RecordStream {
+	out := make(chan Record, len(rs))
+	go func() {
+		defer close(out)
+		for _, r := range rs {
+			out <- r
+		}
+	}()
+	return out
+}
+
 type RecordStream <-chan Record
