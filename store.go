@@ -10,6 +10,8 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/cognicraft/sqlutil"
 )
 
 const (
@@ -219,47 +221,35 @@ func (s *Store) Append(streamID string, expectedVersion uint64, records Records)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-
-	streamVersion := uint64(0)
-	row := tx.QueryRow(`SELECT (streamIndex+1) as version FROM events WHERE streamID = ? ORDER BY streamIndex DESC LIMIT 1;`, streamID)
-	row.Scan(&streamVersion)
-
-	if streamVersion != expectedVersion {
-		tx.Rollback()
-		return OptimisticConcurrencyError{Stream: streamID, Expected: expectedVersion, Actual: streamVersion}
-	}
-
-	storeVersion := uint64(0)
-	row = tx.QueryRow(`SELECT (storeIndex+1) as version FROM events ORDER BY storeIndex DESC LIMIT 1;`)
-	row.Scan(&storeVersion)
-
-	for _, e := range records {
-		storeIndex := uint64(storeVersion)
-		storeVersion++
-		streamIndex := uint64(streamVersion)
-		streamVersion++
-		e.RecordedOn = time.Now().UTC()
-		e.StreamID = streamID
-		e.StreamIndex = streamIndex
-		e.OriginStreamID = streamID
-		e.OriginStreamIndex = streamIndex
-		_, err = tx.Exec(`INSERT INTO events (storeIndex, streamID, streamIndex, recordedOn, id, type, data, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-			storeIndex, streamID, streamIndex, formatTime(e.RecordedOn), e.ID, e.Type, []byte(e.Data), []byte(e.Metadata))
-		if err != nil {
-			tx.Rollback()
-			return err
+	return sqlutil.Transact(s.db, func(tx *sql.Tx) error {
+		streamVersion := uint64(0)
+		row := tx.QueryRow(`SELECT (streamIndex+1) as version FROM events WHERE streamID = ? ORDER BY streamIndex DESC LIMIT 1;`, streamID)
+		row.Scan(&streamVersion)
+		if streamVersion != expectedVersion {
+			return OptimisticConcurrencyError{Stream: streamID, Expected: expectedVersion, Actual: streamVersion}
 		}
-	}
 
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	return nil
+		storeVersion := uint64(0)
+		row = tx.QueryRow(`SELECT (storeIndex+1) as version FROM events ORDER BY storeIndex DESC LIMIT 1;`)
+		row.Scan(&storeVersion)
+
+		for _, e := range records {
+			storeIndex := uint64(storeVersion)
+			storeVersion++
+			streamIndex := uint64(streamVersion)
+			streamVersion++
+			e.RecordedOn = time.Now().UTC()
+			e.StreamID = streamID
+			e.StreamIndex = streamIndex
+			e.OriginStreamID = streamID
+			e.OriginStreamIndex = streamIndex
+			if _, err := tx.Exec(`INSERT INTO events (storeIndex, streamID, streamIndex, recordedOn, id, type, data, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+				storeIndex, streamID, streamIndex, formatTime(e.RecordedOn), e.ID, e.Type, []byte(e.Data), []byte(e.Metadata)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *Store) Close() error {
