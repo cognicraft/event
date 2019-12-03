@@ -19,6 +19,18 @@ type Codec struct {
 	*io.TypeRegistry
 }
 
+func (c *Codec) EncodeAll(events Events) (Records, error) {
+	var recs Records
+	for _, evt := range events {
+		rec, err := c.Encode(evt)
+		if err != nil {
+			return nil, err
+		}
+		recs = append(recs, rec)
+	}
+	return recs, nil
+}
+
 func (c *Codec) Encode(event Event) (Record, error) {
 	name, data, err := c.Marshal(json.Marshal, event)
 	if err != nil {
@@ -31,6 +43,18 @@ func (c *Codec) Encode(event Event) (Record, error) {
 		Data:       json.RawMessage(data),
 	}
 	return r, nil
+}
+
+func (c *Codec) DecodeAll(records Records) (Events, error) {
+	var evts Events
+	for _, rec := range records {
+		evt, err := c.Decode(rec)
+		if err != nil {
+			return nil, err
+		}
+		evts = append(evts, evt)
+	}
+	return evts, nil
 }
 
 func (c *Codec) Decode(record Record) (Event, error) {
