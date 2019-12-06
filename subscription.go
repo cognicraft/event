@@ -109,14 +109,11 @@ func (s *subscription) Cancel() error {
 }
 
 func (s *subscription) onAppend(t pubsub.Topic, args ...interface{}) {
-	if s.streamID == All {
-		s.update <- All
-	}
 	if len(args) < 0 {
 		return
 	}
 	streamID, _ := args[0].(string)
-	if s.streamID == streamID {
+	if s.streamID == All || s.streamID == streamID {
 		s.update <- streamID
 	}
 }
