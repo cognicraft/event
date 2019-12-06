@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/cognicraft/pubsub"
 	"github.com/cognicraft/sqlutil"
 )
 
@@ -18,10 +19,15 @@ const (
 	All = "$all"
 )
 
+const (
+	topicAppend pubsub.Topic = "append"
+)
+
 func NewStore(dataSourceName string) (*Store, error) {
 	s := &Store{
 		dataSourceName: setOptions(dataSourceName),
 		batchSize:      50,
+		publisher:      pubsub.NewPublisher(),
 	}
 	return s, s.init()
 }
@@ -31,6 +37,7 @@ type Store struct {
 	batchSize      uint64
 	mu             sync.Mutex
 	db             *sql.DB
+	publisher      pubsub.Publisher
 }
 
 func (s *Store) VersionAll() uint64 {
@@ -220,8 +227,7 @@ func (s *Store) LoadSlice(streamID string, skip uint64, limit uint64) (*Slice, e
 func (s *Store) Append(streamID string, expectedVersion uint64, records Records) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	return sqlutil.Transact(s.db, func(tx *sql.Tx) error {
+	err := sqlutil.Transact(s.db, func(tx *sql.Tx) error {
 		streamVersion := uint64(0)
 		row := tx.QueryRow(`SELECT (streamIndex+1) as version FROM events WHERE streamID = ? ORDER BY streamIndex DESC LIMIT 1;`, streamID)
 		row.Scan(&streamVersion)
@@ -250,6 +256,10 @@ func (s *Store) Append(streamID string, expectedVersion uint64, records Records)
 		}
 		return nil
 	})
+	if err != nil {
+		s.publisher.Publish(topicAppend, streamID)
+	}
+	return err
 }
 
 func (s *Store) Close() error {
