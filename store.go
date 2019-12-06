@@ -40,100 +40,13 @@ type Store struct {
 	publisher      pubsub.Publisher
 }
 
-func (s *Store) VersionAll() uint64 {
-	row := s.db.QueryRow(`SELECT (storeIndex+1) as version FROM events ORDER BY storeIndex DESC LIMIT 1;`)
-	var version uint64
-	err := row.Scan(&version)
-	if err != nil {
-		// stream does not exist
-		return 0
-	}
-	return version
-}
-
-func (s *Store) LoadAll() RecordStream {
-	return s.LoadAllFrom(0)
-}
-
-func (s *Store) LoadAllFrom(skip uint64) RecordStream {
-	out := make(chan Record)
-	go func() {
-		defer close(out)
-		next := skip
-		for {
-			slice, err := s.LoadAllSlice(next, s.batchSize)
-			if err != nil {
-				return
-			}
-			for _, e := range slice.Records {
-				out <- e
-			}
-			if slice.IsEndOfStream {
-				return
-			}
-			next = slice.Next
-		}
-	}()
-	return out
-}
-
-func (s *Store) LoadAllSlice(skip uint64, limit uint64) (*Slice, error) {
-	query := `
-	SELECT storeIndex, streamID, streamIndex, recordedOn, id, type, data, metadata
-	FROM   events
-	WHERE  storeIndex >= ?
-	ORDER  BY storeIndex
-	LIMIT  ?;`
-	rows, err := s.db.Query(query, int64(skip), int64(limit)+1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	slice := Slice{
-		StreamID: All,
-		From:     skip,
-	}
-	for rows.Next() {
-		var storeIndex uint64
-		var streamID string
-		var streamIndex uint64
-		var id string
-		var typ string
-		var recordedOn string
-		var data []byte
-		var metadata []byte
-		err := rows.Scan(&storeIndex, &streamID, &streamIndex, &recordedOn, &id, &typ, &data, &metadata)
-		if err != nil {
-			return nil, err
-		}
-		r := Record{
-			ID:                id,
-			StreamID:          All,
-			StreamIndex:       storeIndex,
-			OriginStreamID:    streamID,
-			OriginStreamIndex: streamIndex,
-			RecordedOn:        parseTime(recordedOn),
-			Type:              typ,
-			Data:              json.RawMessage(data),
-			Metadata:          json.RawMessage(metadata),
-		}
-		slice.Records = append(slice.Records, r)
-	}
-
-	nEvents := uint64(len(slice.Records))
-	slice.IsEndOfStream = (nEvents <= limit)
-	if slice.IsEndOfStream {
-		slice.Next = skip + nEvents
-	} else {
-		slice.Records = slice.Records[:limit]
-		slice.Next = skip + nEvents - 1
-	}
-	return &slice, nil
-}
-
 func (s *Store) Version(streamID string) uint64 {
-	row := s.db.QueryRow(`SELECT (streamIndex+1) as version FROM events WHERE streamID = ? ORDER BY storeIndex DESC LIMIT 1;`, streamID, 0)
+	var row *sql.Row
+	if All == streamID {
+		row = s.db.QueryRow(`SELECT (storeIndex+1) as version FROM events ORDER BY storeIndex DESC LIMIT 1;`)
+	} else {
+		row = s.db.QueryRow(`SELECT (streamIndex+1) as version FROM events WHERE streamID = ? ORDER BY storeIndex DESC LIMIT 1;`, streamID, 0)
+	}
 	var version uint64
 	err := row.Scan(&version)
 	if err != nil {
@@ -170,6 +83,9 @@ func (s *Store) LoadFrom(streamID string, skip uint64) RecordStream {
 }
 
 func (s *Store) LoadSlice(streamID string, skip uint64, limit uint64) (*Slice, error) {
+	if All == streamID {
+		return s.loadAllSlice(skip, limit)
+	}
 	query := `
 	SELECT streamID, streamIndex, recordedOn, id, type, data, metadata
 	FROM   events
@@ -224,7 +140,65 @@ func (s *Store) LoadSlice(streamID string, skip uint64, limit uint64) (*Slice, e
 	return &slice, nil
 }
 
+func (s *Store) loadAllSlice(skip uint64, limit uint64) (*Slice, error) {
+	query := `
+	SELECT storeIndex, streamID, streamIndex, recordedOn, id, type, data, metadata
+	FROM   events
+	WHERE  storeIndex >= ?
+	ORDER  BY storeIndex
+	LIMIT  ?;`
+	rows, err := s.db.Query(query, int64(skip), int64(limit)+1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	slice := Slice{
+		StreamID: All,
+		From:     skip,
+	}
+	for rows.Next() {
+		var storeIndex uint64
+		var streamID string
+		var streamIndex uint64
+		var id string
+		var typ string
+		var recordedOn string
+		var data []byte
+		var metadata []byte
+		err := rows.Scan(&storeIndex, &streamID, &streamIndex, &recordedOn, &id, &typ, &data, &metadata)
+		if err != nil {
+			return nil, err
+		}
+		r := Record{
+			ID:                id,
+			StreamID:          All,
+			StreamIndex:       storeIndex,
+			OriginStreamID:    streamID,
+			OriginStreamIndex: streamIndex,
+			RecordedOn:        parseTime(recordedOn),
+			Type:              typ,
+			Data:              json.RawMessage(data),
+			Metadata:          json.RawMessage(metadata),
+		}
+		slice.Records = append(slice.Records, r)
+	}
+
+	nEvents := uint64(len(slice.Records))
+	slice.IsEndOfStream = (nEvents <= limit)
+	if slice.IsEndOfStream {
+		slice.Next = skip + nEvents
+	} else {
+		slice.Records = slice.Records[:limit]
+		slice.Next = skip + nEvents - 1
+	}
+	return &slice, nil
+}
+
 func (s *Store) Append(streamID string, expectedVersion uint64, records Records) error {
+	if All == streamID {
+		return fmt.Errorf("cannot append to all stream")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	err := sqlutil.Transact(s.db, func(tx *sql.Tx) error {

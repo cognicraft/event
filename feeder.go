@@ -61,20 +61,9 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 		},
 	}
 
-	var s *Slice
-	var err error
-
-	switch f.StreamID {
-	case All:
-		s, err = f.Store.LoadAllSlice(skip, limit)
-		if err != nil {
-			return page
-		}
-	default:
-		s, err = f.Store.LoadSlice(f.StreamID, skip, limit)
-		if err != nil {
-			return page
-		}
+	s, err := f.Store.LoadSlice(f.StreamID, skip, limit)
+	if err != nil {
+		return page
 	}
 
 	for _, r := range s.Records {
