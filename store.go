@@ -230,7 +230,7 @@ func (s *Store) Append(streamID string, expectedVersion uint64, records Records)
 		}
 		return nil
 	})
-	if err != nil {
+	if err == nil {
 		s.publisher.Publish(topicAppend, streamID)
 	}
 	return err
