@@ -1,6 +1,8 @@
 package event
 
-import "github.com/cognicraft/pubsub"
+import (
+	"github.com/cognicraft/pubsub"
+)
 
 func (s *Store) SubscribeToStream(streamID string) Subscription {
 	return &subscription{
