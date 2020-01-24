@@ -11,7 +11,7 @@ import (
 )
 
 // This example will use the different concepts provided by this package in combination
-// to enable an event sourced system.
+// to enable an event sourced system. For this we will track a users lifecycle.
 
 // UserID is used to identify the User entity.
 type UserID string
