@@ -18,17 +18,17 @@ type UserID string
 
 // Created must be the very first event in a User entity lifecycle.
 type Created struct {
-	ID         string    // The id of the event (useful for deduplication purposes).
-	OccurredOn time.Time // The point in time when this event occurred.
-	User       UserID    // The id of the new User entity lifecycle.
+	ID         string    `json:"id"`          // The id of the event (useful for deduplication purposes).
+	OccurredOn time.Time `json:"occurred-on"` // The point in time when this event occurred.
+	User       UserID    `json:"user"`        // The id of the new User entity lifecycle.
 }
 
 // NameChanged will always be generated when a Users name changes.
 type NameChanged struct {
-	ID         string    // The id of the envent (useful for deduplication purposes).
-	OccurredOn time.Time // The point in time when this event occurred.
-	User       UserID    // The id of the User entity lifecycle.
-	Name       string    // The new name of the User going forward.
+	ID         string    `json:"id"`          // The id of the envent (useful for deduplication purposes).
+	OccurredOn time.Time `json:"occurred-on"` // The point in time when this event occurred.
+	User       UserID    `json:"user"`        // The id of the User entity lifecycle.
+	Name       string    `json:"name"`        // The new name of the User going forward.
 }
 
 // NewUser creates a User entity.
@@ -125,39 +125,48 @@ func UserCodec() *Codec {
 }
 
 // Save can be used to dehydrate a User into an event store.
-func Save(store *Store, user *User) error {
+func Save(store *Store, user *User, metadata interface{}) error {
 	// If there are no new changes nothing needs to be stored. The unit of work is empty.
 	if len(user.Changes()) == 0 {
 		return nil
 	}
-	streamID := string(user.ID) // Each user will have its own stream within the event store.
+	// Each user will have its own stream within the event store.
+	streamID := string(user.ID)
 	// Each applied event will increase the version of a user.
 	// The version of the user that was originally loaded can be calculated.
 	// The result is the expected version (length) of the event stream currently stored.
 	ex := user.Version - uint64(len(user.Changes()))
-	codec := UserCodec()                         // We will use this codec to marshal the events as event records
-	recs, err := codec.EncodeAll(user.Changes()) // Encode all events in the unit of work.
+	// We will use this codec to marshal the events as event records
+	codec := UserCodec()
+	// Encode all events in the unit of work.
+	recs, err := codec.EncodeAll(user.Changes(), WithMetadata(metadata))
 	if err != nil {
 		return err
 	}
-	err = store.Append(streamID, ex, recs) // Append all records to the event stream.
+	// Append all records to the event stream.
+	err = store.Append(streamID, ex, recs)
 	if err != nil {
 		return err
 	}
-	user.ClearChanges() // All events in the unit of work have ben saved to the event store. We can clear all changes.
+	// All events in the unit of work have ben saved to the event store. We can clear all changes.
+	user.ClearChanges()
 	return nil
 }
 
 // Load can be used to rehydrate a User from an event store.
 func Load(store *Store, uID UserID) (*User, error) {
-	codec := UserCodec()    // We will use this codec to unmarshal event records to domain events.
-	user := NewUser()       // Create an empty user
-	streamID := string(uID) // Each user will have its own stream within the event store.
+	// We will use this codec to unmarshal event records to domain events.
+	codec := UserCodec()
+	// Create an empty user
+	user := NewUser()
+	// Each user will have its own stream within the event store.
+	streamID := string(uID)
 	// Mutate the user for each event stored in history.
 	// We are using the streaming version sice the number of events in all of histoy for this user
 	// could be quite large (and not fit into memory).
 	for rec := range store.Load(streamID) {
-		evt, err := codec.Decode(rec) // unmarshal an event record
+		// unmarshal an event record
+		evt, err := codec.Decode(rec)
 		if err != nil {
 			return nil, err
 		}
@@ -252,6 +261,12 @@ func (p *Projection) TotalNumberOfNameChanges() int {
 	return p.totalNumberOfNameChanges
 }
 
+type Metadata struct {
+	UserName    string `json:"user-name,omitempty"`
+	Causation   string `json:"causation,omitempty"`
+	Correlation string `json:"correlation,omitempty"`
+}
+
 func TestEventSourcedSystem(t *testing.T) {
 	var err error
 	u := NewUser()
@@ -324,7 +339,7 @@ func TestEventSourcedSystem(t *testing.T) {
 	defer sub.Cancel()
 	sub.On(projection.On)
 
-	err = Save(store, u)
+	err = Save(store, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
 	if err != nil {
 		t.Errorf("expected no error: %v", err)
 	}
@@ -373,7 +388,7 @@ func TestEventSourcedSystem(t *testing.T) {
 	u2.ChangeName("User2")
 	u2.ChangeName("User-2")
 
-	err = Save(store, u2)
+	err = Save(store, u2, Metadata{UserName: "admin", Correlation: "transaction:2"})
 	if err != nil {
 		t.Errorf("expected no error: %v", err)
 	}

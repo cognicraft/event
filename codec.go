@@ -9,6 +9,19 @@ import (
 	"github.com/cognicraft/uuid"
 )
 
+type RecordMutation func(r *Record)
+
+func WithMetadata(v interface{}) RecordMutation {
+	return func(r *Record) {
+		if v == nil {
+			return
+		}
+		if md, err := Encode(v); err == nil {
+			r.Metadata = md
+		}
+	}
+}
+
 func NewCodec() *Codec {
 	return &Codec{
 		TypeRegistry: io.NewTypeRegistry(),
@@ -19,10 +32,10 @@ type Codec struct {
 	*io.TypeRegistry
 }
 
-func (c *Codec) EncodeAll(events Events) (Records, error) {
+func (c *Codec) EncodeAll(events Events, muts ...RecordMutation) (Records, error) {
 	var recs Records
 	for _, evt := range events {
-		rec, err := c.Encode(evt)
+		rec, err := c.Encode(evt, muts...)
 		if err != nil {
 			return nil, err
 		}
@@ -31,7 +44,7 @@ func (c *Codec) EncodeAll(events Events) (Records, error) {
 	return recs, nil
 }
 
-func (c *Codec) Encode(event Event) (Record, error) {
+func (c *Codec) Encode(event Event, muts ...RecordMutation) (Record, error) {
 	name, data, err := c.Marshal(json.Marshal, event)
 	if err != nil {
 		return Record{}, err
@@ -41,6 +54,10 @@ func (c *Codec) Encode(event Event) (Record, error) {
 		RecordedOn: time.Now().UTC(),
 		Type:       name,
 		Data:       json.RawMessage(data),
+	}
+	// apply all additional mutations
+	for _, mut := range muts {
+		mut(&r)
 	}
 	return r, nil
 }
