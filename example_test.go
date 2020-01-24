@@ -10,6 +10,9 @@ import (
 	"github.com/cognicraft/uuid"
 )
 
+// This example will use the different concepts provided by this package in combination
+// to enable an event sourced system.
+
 // UserID is used to identify the User entity.
 type UserID string
 
@@ -249,7 +252,7 @@ func (p *Projection) TotalNumberOfNameChanges() int {
 	return p.totalNumberOfNameChanges
 }
 
-func TestUser(t *testing.T) {
+func TestEventSourcedSystem(t *testing.T) {
 	var err error
 	u := NewUser()
 	if u.ID != "" {
