@@ -171,6 +171,7 @@ func Load(store *Store, uID UserID) (*User, error) {
 	return user, nil
 }
 
+// NewProjection creates a new Projection. In a production system this should probably be something persistent.
 func NewProjection() *Projection {
 	return &Projection{
 		userNames:                  map[UserID]string{},
@@ -178,6 +179,7 @@ func NewProjection() *Projection {
 	}
 }
 
+// Projection can answer some questions about the user domain.
 type Projection struct {
 	mu                         sync.RWMutex
 	userNames                  map[UserID]string
@@ -194,6 +196,7 @@ func (p *Projection) On(rec Record) {
 	if err != nil {
 		return
 	}
+	// extract relevant information from the domain events
 	switch e := evt.(type) {
 	case Created:
 		// for our current projection we can ignore this event
@@ -293,7 +296,7 @@ func TestUser(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error")
 	}
-	err = u.ChangeName("UserA")
+	err = u.ChangeName("User-1")
 	if err != nil {
 		t.Errorf("expected no error: %v", err)
 	}
@@ -303,8 +306,8 @@ func TestUser(t *testing.T) {
 	if u.Version != 2 {
 		t.Errorf("want: %v, got: %v", 2, u.Version)
 	}
-	if u.Name != "UserA" {
-		t.Errorf("want: %v, got: %v", "UserA", u.Name)
+	if u.Name != "User-1" {
+		t.Errorf("want: %v, got: %v", "User-1", u.Name)
 	}
 	if n := len(u.Changes()); n != 2 {
 		t.Errorf("want: %v, got: %v", 2, n)
@@ -342,13 +345,56 @@ func TestUser(t *testing.T) {
 		t.Errorf("expected original to be equal to loaded")
 	}
 
+	// give the projection time to become consistent
+	time.Sleep(100 * time.Millisecond)
+
 	if projection.IsUserNameInUse("e") {
 		t.Errorf("expected %v to not be in use", "e")
 	}
-	if !projection.IsUserNameInUse("UserA") {
-		t.Errorf("expected %v to be in use", "UserA")
+	if !projection.IsUserNameInUse("User-1") {
+		t.Errorf("expected %v to be in use", "User-1")
 	}
-	if n := projection.UserName("user-1"); n != "UserA" {
-		t.Errorf("want: %s, got: %s", "UserA", n)
+	if n := projection.UserName("user-1"); n != "User-1" {
+		t.Errorf("want: %s, got: %s", "User-1", n)
 	}
+	if n := projection.NumberOfNameChangesForUser("user-1"); n != 1 {
+		t.Errorf("want: %v, got: %v", 1, n)
+	}
+	if n := projection.TotalNumberOfNameChanges(); n != 1 {
+		t.Errorf("want: %v, got: %v", 1, n)
+	}
+
+	u2 := NewUser()
+	u2.Create("user-2")
+	u2.ChangeName("False Name")
+	u2.ChangeName("User2")
+	u2.ChangeName("User-2")
+
+	err = Save(store, u2)
+	if err != nil {
+		t.Errorf("expected no error: %v", err)
+	}
+
+	// give the projection time to become consistent
+	time.Sleep(100 * time.Millisecond)
+
+	if projection.IsUserNameInUse("False Name") {
+		t.Errorf("expected %v to not be in use", "False Name")
+	}
+	if projection.IsUserNameInUse("User2") {
+		t.Errorf("expected %v to not be in use", "User2")
+	}
+	if !projection.IsUserNameInUse("User-2") {
+		t.Errorf("expected %v to be in use", "User-2")
+	}
+	if n := projection.UserName("user-2"); n != "User-2" {
+		t.Errorf("want: %s, got: %s", "User-2", n)
+	}
+	if n := projection.NumberOfNameChangesForUser("user-2"); n != 3 {
+		t.Errorf("want: %v, got: %v", 3, n)
+	}
+	if n := projection.TotalNumberOfNameChanges(); n != 4 {
+		t.Errorf("want: %v, got: %v", 4, n)
+	}
+
 }
