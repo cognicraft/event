@@ -3,6 +3,7 @@ package event
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -170,6 +171,81 @@ func Load(store *Store, uID UserID) (*User, error) {
 	return user, nil
 }
 
+func NewProjection() *Projection {
+	return &Projection{
+		userNames:                  map[UserID]string{},
+		numberOfNameChangesPerUser: map[UserID]int{},
+	}
+}
+
+type Projection struct {
+	mu                         sync.RWMutex
+	userNames                  map[UserID]string
+	numberOfNameChangesPerUser map[UserID]int
+	totalNumberOfNameChanges   int
+}
+
+// On should be called for each event in history.
+func (p *Projection) On(rec Record) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	codec := UserCodec()          // We will use this codec to unmarshal event records to domain events.
+	evt, err := codec.Decode(rec) // unmarshal an event record
+	if err != nil {
+		return
+	}
+	switch e := evt.(type) {
+	case Created:
+		// for our current projection we can ignore this event
+	case NameChanged:
+		// record the current name of a user
+		p.userNames[e.User] = e.Name
+
+		// increment the number of name changes per user
+		n := p.numberOfNameChangesPerUser[e.User]
+		n++
+		p.numberOfNameChangesPerUser[e.User] = n
+
+		// increment the total number of name changes
+		p.totalNumberOfNameChanges++
+	}
+}
+
+// UserName will retrieve a users current name.
+func (p *Projection) UserName(id UserID) string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	n, _ := p.userNames[id]
+	return n
+}
+
+// IsUserNameInUse will check if the provided name is currently in use by a user.
+func (p *Projection) IsUserNameInUse(name string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, n := range p.userNames {
+		if name == n {
+			return true
+		}
+	}
+	return false
+}
+
+// NumberOfNameChangesForUser will retrieve the number of name changes in history for a given user
+func (p *Projection) NumberOfNameChangesForUser(id UserID) int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	n, _ := p.numberOfNameChangesPerUser[id]
+	return n
+}
+
+// TotalNumberOfNameChanges will retrieve the total number of name changes in history
+func (p *Projection) TotalNumberOfNameChanges() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.totalNumberOfNameChanges
+}
+
 func TestUser(t *testing.T) {
 	var err error
 	u := NewUser()
@@ -235,6 +311,13 @@ func TestUser(t *testing.T) {
 	}
 
 	store, _ := NewStore(":memory:")
+	defer store.Close()
+
+	projection := NewProjection()
+	sub := store.SubscribeToStream(All)
+	defer sub.Cancel()
+	sub.On(projection.On)
+
 	err = Save(store, u)
 	if err != nil {
 		t.Errorf("expected no error: %v", err)
@@ -257,5 +340,15 @@ func TestUser(t *testing.T) {
 	}
 	if !reflect.DeepEqual(u, lu) {
 		t.Errorf("expected original to be equal to loaded")
+	}
+
+	if projection.IsUserNameInUse("e") {
+		t.Errorf("expected %v to not be in use", "e")
+	}
+	if !projection.IsUserNameInUse("UserA") {
+		t.Errorf("expected %v to be in use", "UserA")
+	}
+	if n := projection.UserName("user-1"); n != "UserA" {
+		t.Errorf("want: %s, got: %s", "UserA", n)
 	}
 }
