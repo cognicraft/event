@@ -47,15 +47,25 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 		Type: "records",
 		Links: []hyper.Link{
 			{
-				Rel:  "self",
+				Rel:  hyper.RelSelf,
 				Href: pageURL(url, skip, limit),
 			},
 			{
-				Rel:  "last",
+				Rel:      hyper.RelSearch,
+				Template: searchTemplate(url),
+				Parameters: []hyper.Parameter{
+					{
+						Name: nSkip,
+						Type: "int",
+					},
+				},
+			},
+			{
+				Rel:  hyper.RelLast,
 				Href: streamURL(url),
 			},
 			{
-				Rel:  "first",
+				Rel:  hyper.RelFirst,
 				Href: pageURL(url, 0, limit),
 			},
 		},
@@ -82,7 +92,7 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 		}
 		page.Links = append(page.Links,
 			hyper.Link{
-				Rel:  "previous",
+				Rel:  hyper.RelPrevious,
 				Href: pageURL(url, s, limit),
 			})
 	}
@@ -90,7 +100,7 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 	if len(page.Items) > 0 {
 		page.Links = append(page.Links,
 			hyper.Link{
-				Rel:  "next",
+				Rel:  hyper.RelNext,
 				Href: pageURL(url, s.Next, limit),
 			})
 	}
