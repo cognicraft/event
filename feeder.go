@@ -44,7 +44,7 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 	}
 
 	page := hyper.Item{
-		Type: "records",
+		Type: "event-records",
 		Links: []hyper.Link{
 			{
 				Rel:  hyper.RelSelf,
@@ -78,7 +78,7 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 
 	for _, r := range s.Records {
 		rItem := hyper.Item{
-			Type: "record",
+			Type: "event-record",
 		}
 		rItem.EncodeData(r)
 		page.Items = append(hyper.Items{rItem}, page.Items...)

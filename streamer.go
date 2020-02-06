@@ -270,7 +270,7 @@ func Stream(page hyper.Item) RecordStream {
 
 		for i := len(page.Items) - 1; i >= 0; i-- {
 			rItem := page.Items[i]
-			if rItem.Type == "record" {
+			if rItem.Type == "event-record" {
 				r := Record{}
 				if err := rItem.DecodeData(&r); err == nil {
 					out <- r
@@ -313,7 +313,7 @@ func (e entry) String() string {
 
 func ContainsEventWithIndex(page hyper.Item, i uint64) bool {
 	for _, rItem := range page.Items {
-		if rItem.Type == "record" {
+		if rItem.Type == "event-record" {
 			r := Record{}
 			if err := rItem.DecodeData(&r); err == nil {
 				if r.StreamIndex == i {
