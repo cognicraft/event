@@ -1,5 +1,7 @@
 github.com/cognicraft/hyper v0.0.0-20200124122547-b9a2db83f54d h1:lv0FfCQ0RjuJeB9VpN0r+xkd77Kz6/zqXIDlyJkoSAg=
 github.com/cognicraft/hyper v0.0.0-20200124122547-b9a2db83f54d/go.mod h1:0kLt0pLOSqOLZiFgyyWczlaNSFNiuuMmEKKOnCvIuPE=
+github.com/cognicraft/hyper v0.0.0-20200215194246-b6f534910a6a h1:jV2F/7kmz8+twm1jLzX6Trm13kyhKy/fmXucoppTZPI=
+github.com/cognicraft/hyper v0.0.0-20200215194246-b6f534910a6a/go.mod h1:0kLt0pLOSqOLZiFgyyWczlaNSFNiuuMmEKKOnCvIuPE=
 github.com/cognicraft/io v0.0.0-20191202083459-2ba59d0a2abc h1:IXVle0KMsXb3n21JXY4jhiE/LpYI4ke1kSUk6S++EkE=
 github.com/cognicraft/io v0.0.0-20191202083459-2ba59d0a2abc/go.mod h1:NQms0ZPqBGV8YLY0mu9gBZcBQxDb+KYWuvto07lSimg=
 github.com/cognicraft/pubsub v0.0.0-20191206113036-76a1d4d2d67d h1:efVO7Ktk1LIo1p8D0tgUj7EWilpTXZhJa7MBgTjUzhk=
@@ -12,3 +14,5 @@ github.com/cognicraft/uuid v0.0.0-20191018203612-ca14f2f77895 h1:E1pU8G2KVrXIdg5
 github.com/cognicraft/uuid v0.0.0-20191018203612-ca14f2f77895/go.mod h1:sm03FRKkAglOr3fkM+5YuD6kfWJLZ6ZpkJ2ewzwkTeE=
 github.com/mattn/go-sqlite3 v2.0.2+incompatible h1:qzw9c2GNT8UFrgWNDhCTqRqYUSmu/Dav/9Z58LGpk7U=
 github.com/mattn/go-sqlite3 v2.0.2+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
+github.com/mattn/go-sqlite3 v2.0.3+incompatible h1:gXHsfypPkaMZrKbD5209QV9jbUTJKjyR5WD3HYQSd+U=
+github.com/mattn/go-sqlite3 v2.0.3+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
