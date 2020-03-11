@@ -1,11 +1,9 @@
-github.com/cognicraft/hyper v0.1.1 h1:/+S2Kg+Vq6HOD5HYLE39pX8haCGgNW3orY34BJvX7ZI=
-github.com/cognicraft/hyper v0.1.1/go.mod h1:0kLt0pLOSqOLZiFgyyWczlaNSFNiuuMmEKKOnCvIuPE=
-github.com/cognicraft/hyper v0.1.3 h1:C6F+GYbkUCUhl1qL4uem7adcv/AAsjA5KH4N6ItzibI=
-github.com/cognicraft/hyper v0.1.3/go.mod h1:0kLt0pLOSqOLZiFgyyWczlaNSFNiuuMmEKKOnCvIuPE=
+github.com/cognicraft/hyper v0.1.5 h1:nmQK0yBdvZjo+g0DkrT+wSgT0BIJ6dE+sCUYzWlEGd4=
+github.com/cognicraft/hyper v0.1.5/go.mod h1:rdypOsSfNqvVIlUj2H5ETGdQwM8MuPaL1bZd+eu1l50=
 github.com/cognicraft/io v0.1.0 h1:k0/ssb1TXEZNa8pwJpTUlYbIpK23z/nOMnKgnso7asM=
 github.com/cognicraft/io v0.1.0/go.mod h1:NQms0ZPqBGV8YLY0mu9gBZcBQxDb+KYWuvto07lSimg=
-github.com/cognicraft/pubsub v0.1.0 h1:IkOMQfXGZbhU0VdV+vUUl6HNi927gYYk0CX+kqauUkM=
-github.com/cognicraft/pubsub v0.1.0/go.mod h1:tVSYVI33eccJPxe/ykQhz9Sr8+s9asCP4Zh31mnB76Y=
+github.com/cognicraft/pubsub v0.1.1 h1:88R+AlK5UOBXJZZGC3nbNH0pTiuyJ9wcxpC+UGV6BIQ=
+github.com/cognicraft/pubsub v0.1.1/go.mod h1:tVSYVI33eccJPxe/ykQhz9Sr8+s9asCP4Zh31mnB76Y=
 github.com/cognicraft/sqlutil v0.1.0 h1:5/ph7A6VXrlPiOSbuprA9qWel61Tx59MfwmC+JN97p0=
 github.com/cognicraft/sqlutil v0.1.0/go.mod h1:pI6HcWbv0csaVHST1Y2vZlW0iDxXBTE5TDQVaUzC4gU=
 github.com/cognicraft/uri v0.1.0 h1:jEcf8U8K3go/KgT6UEzpmg2g2F6fzVdgkVNNWCC//E4=
