@@ -76,19 +76,21 @@ func (s *Server) handleGETStream(w http.ResponseWriter, r *http.Request) {
 	streamID := r.Context().Value(":id").(string)
 	feeder := NewFeeder(s.store, streamID)
 	page := feeder.Page(resolve(""))
-	page.AddAction(hyper.Action{
-		Rel:    "append",
-		Href:   resolve("").String(),
-		Method: hyper.MethodPOST,
-		Parameters: hyper.Parameters{
-			hyper.ActionParameter("append"),
-			{
-				Name:     "events",
-				Type:     "application/vnd.event+json",
-				Multiple: true,
+	if streamID != All {
+		page.AddAction(hyper.Action{
+			Rel:    "append",
+			Href:   resolve("").String(),
+			Method: hyper.MethodPOST,
+			Parameters: hyper.Parameters{
+				hyper.ActionParameter("append"),
+				{
+					Name:     "events",
+					Type:     "application/vnd.event+json",
+					Multiple: true,
+				},
 			},
-		},
-	})
+		})
+	}
 	hyper.Write(w, http.StatusOK, page)
 }
 
@@ -97,6 +99,13 @@ func (s *Server) handlePOSTStream(w http.ResponseWriter, r *http.Request) {
 	cmd := hyper.ExtractCommand(r)
 	switch cmd.Action {
 	case "append":
+		if streamID == All {
+			hyper.Write(w, http.StatusBadRequest, Response(
+				fmt.Sprintf("events can not be appended to %s", All),
+				fmt.Errorf("events can not be appended to %s", All),
+			))
+			return
+		}
 		rs := Records{}
 		err := cmd.Arguments.JSON("events", &rs)
 		if err != nil {
