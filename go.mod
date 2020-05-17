@@ -11,5 +11,4 @@ require (
 	github.com/cognicraft/uri v0.1.0
 	github.com/cognicraft/uuid v0.1.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/pkg/errors v0.9.1 // indirect
 )
