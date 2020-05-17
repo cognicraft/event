@@ -19,18 +19,18 @@ func main() {
 		serveCommand.PrintDefaults()
 	}
 
-	sourceCommand := flag.NewFlagSet("source", flag.ExitOnError)
-	sourceFollow := sourceCommand.Bool("f", false, "follow")
-	sourceFrom := sourceCommand.Uint64("s", 0, "skip")
-	sourceCommand.Usage = func() {
-		fmt.Println("usage: es source [<options>] <stream>")
-		sourceCommand.PrintDefaults()
+	streamCommand := flag.NewFlagSet("stream", flag.ExitOnError)
+	streamFollow := streamCommand.Bool("follow", false, "follow")
+	streamFrom := streamCommand.Uint64("from", 0, "from version")
+	streamCommand.Usage = func() {
+		fmt.Println("usage: es stream [<options>] <stream-url>")
+		streamCommand.PrintDefaults()
 	}
 
 	replicateCommand := flag.NewFlagSet("replicate", flag.ExitOnError)
-	replicateSource := replicateCommand.String("s", "", "URL of a stream.")
-	replicateTarget := replicateCommand.String("t", "", "Database.")
-	replicateFollow := replicateCommand.Bool("f", false, "follow")
+	replicateSource := replicateCommand.String("source", "", "URL of a stream.")
+	replicateTarget := replicateCommand.String("target", "", "Database.")
+	replicateFollow := replicateCommand.Bool("follow", false, "follow")
 	replicateCommand.Usage = func() {
 		fmt.Println("usage: es replicate [<options>]")
 		replicateCommand.PrintDefaults()
@@ -41,15 +41,15 @@ func main() {
 		fmt.Println("The most commonly used es commands are: ")
 		fmt.Println("  replicate Replicates a stream into a Database.")
 		fmt.Println("  serve     Provides HTTP access to an event-store.")
-		fmt.Println("  source    Copies stream to out.")
+		fmt.Println("  stream    Copies stream to out.")
 		return
 	}
 
 	switch os.Args[1] {
 	case "serve":
 		serveCommand.Parse(os.Args[2:])
-	case "source":
-		sourceCommand.Parse(os.Args[2:])
+	case "stream":
+		streamCommand.Parse(os.Args[2:])
 	case "replicate":
 		replicateCommand.Parse(os.Args[2:])
 	default:
@@ -65,12 +65,12 @@ func main() {
 		}
 		ds := serveCommand.Args()[0]
 		serve(*serveBind, ds)
-	case sourceCommand.Parsed():
-		if len(sourceCommand.Args()) == 0 {
-			sourceCommand.Usage()
+	case streamCommand.Parsed():
+		if len(streamCommand.Args()) == 0 {
+			streamCommand.Usage()
 			return
 		}
-		source(sourceCommand.Args()[0], *sourceFollow, *sourceFrom)
+		stream(streamCommand.Args()[0], *streamFollow, *streamFrom)
 	case replicateCommand.Parsed():
 		target := *replicateTarget
 		replicate(*replicateSource, target, *replicateFollow)
@@ -91,14 +91,12 @@ func serve(bind string, dsn string) {
 	server.Run()
 }
 
-func source(stream string, follow bool, skip uint64) {
+func stream(stream string, follow bool, skip uint64) {
 	streamer, _ := event.NewStreamer(stream)
 	if follow {
 		streamer.SetOption(event.Follow())
 	}
-	if skip != 0 {
-		streamer.SetOption(event.From(skip + 1))
-	}
+	streamer.SetOption(event.From(skip))
 	for e := range streamer.Stream() {
 		bs, err := json.Marshal(e)
 		if err != nil {
