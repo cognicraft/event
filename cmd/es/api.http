@@ -1,0 +1,29 @@
+### Append Events
+POST http://127.0.0.1:4711/streams/test HTTP/1.1
+Content-Type: application/json
+
+{
+    "@action": "append",
+    "events": [
+        {
+            "type": "foo",
+            "data": {}
+        },
+        {
+            "type": "bar",
+            "data": {}
+        },
+        {
+            "type": "baz",
+            "data": {}
+        },
+        {
+            "type": "fizzle",
+            "data": {}
+        },
+        {
+            "type": "wizzle",
+            "data": {}
+        }
+    ]
+}

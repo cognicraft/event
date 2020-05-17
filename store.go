@@ -218,7 +218,9 @@ func (s *Store) Append(streamID string, expectedVersion uint64, records Records)
 			storeVersion++
 			streamIndex := uint64(streamVersion)
 			streamVersion++
-			e.RecordedOn = time.Now().UTC()
+			if e.RecordedOn.IsZero() {
+				e.RecordedOn = time.Now().UTC()
+			}
 			e.StreamID = streamID
 			e.StreamIndex = streamIndex
 			e.OriginStreamID = streamID

@@ -6,7 +6,7 @@ import (
 )
 
 type Record struct {
-	ID                string          `json:"id"`                  // the unique id of the event
+	ID                string          `json:"id,omitempty"`        // the unique id of the event
 	StreamID          string          `json:"stream-id"`           // the id of the current stream
 	StreamIndex       uint64          `json:"stream-index"`        // the index of the event within the current stream
 	OriginStreamID    string          `json:"origin-stream-id"`    // the id of the origin stream

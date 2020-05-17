@@ -148,7 +148,7 @@ func Save(store *Store, user *User, metadata interface{}) error {
 	if err != nil {
 		return err
 	}
-	// All events in the unit of work have ben saved to the event store. We can clear all changes.
+	// All events in the unit of work have been saved to the event store. We can clear all changes.
 	user.ClearChanges()
 	return nil
 }
