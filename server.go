@@ -47,6 +47,7 @@ func (s *Server) init() {
 		longPolling,
 	)
 	s.router.Route("/").GET(chain.ThenFunc(s.handleGET))
+	s.router.Route("/streams/").GET(chain.ThenFunc(s.handleGETStreams))
 	s.router.Route("/streams/:id").GET(chain.ThenFunc(s.handleGETStream))
 	s.router.Route("/streams/:id").POST(chain.ThenFunc(s.handlePOSTStream))
 
@@ -65,6 +66,37 @@ func (s *Server) handleGET(w http.ResponseWriter, r *http.Request) {
 			{
 				Rel:  hyper.RelSelf,
 				Href: resolve("").String(),
+			},
+			{
+				Rel:  "streams",
+				Href: resolve("./streams/").String(),
+			},
+		},
+	}
+	hyper.Write(w, http.StatusOK, res)
+}
+
+func (s *Server) handleGETStreams(w http.ResponseWriter, r *http.Request) {
+	resolve := hyper.ExternalURLResolver(r)
+	res := hyper.Item{
+		Links: hyper.Links{
+			{
+				Rel:  hyper.RelSelf,
+				Href: resolve("").String(),
+			},
+			{
+				Rel:  All,
+				Href: resolve("./%s", All).String(),
+			},
+			{
+				Rel:      "stream",
+				Template: resolve("./").String() + "{id}",
+				Parameters: hyper.Parameters{
+					{
+						Name: "id",
+						Type: hyper.TypeText,
+					},
+				},
 			},
 		},
 	}
