@@ -16,7 +16,7 @@ const (
 	defaultPageSize = 50
 )
 
-func NewFeeder(store *Store, streamID string) *Feeder {
+func NewFeeder(store Store, streamID string) *Feeder {
 	return &Feeder{
 		Store:    store,
 		StreamID: streamID,
@@ -25,7 +25,7 @@ func NewFeeder(store *Store, streamID string) *Feeder {
 }
 
 type Feeder struct {
-	Store    *Store
+	Store    Store
 	StreamID string
 	PageSize uint64
 }
@@ -137,7 +137,7 @@ func numberOfPages(version uint64, limit uint64) uint64 {
 	return p
 }
 
-func HandleGETStream(store *Store, stream string) func(w http.ResponseWriter, r *http.Request) {
+func HandleGETStream(store Store, stream string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		feeder := NewFeeder(store, stream)
 		page := feeder.Page(hyper.ExternalURL(r))

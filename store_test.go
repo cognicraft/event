@@ -6,7 +6,7 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	s, err := NewStore(":memory:")
+	s, err := NewBasicStore(":memory:")
 	// s, err := NewStore("test.db")
 	if err != nil {
 		t.Errorf("expected no error, but got: %v", err)

@@ -9,7 +9,7 @@ import (
 	"github.com/cognicraft/mux"
 )
 
-func NewServer(bind string, store *Store) (*Server, error) {
+func NewServer(bind string, store *BasicStore) (*Server, error) {
 	s := &Server{
 		bind:   bind,
 		store:  store,
@@ -21,7 +21,7 @@ func NewServer(bind string, store *Store) (*Server, error) {
 
 type Server struct {
 	bind              string
-	store             *Store
+	store             *BasicStore
 	storeSubscription Subscription
 	router            *mux.Router
 	signal            mux.SignalFunc

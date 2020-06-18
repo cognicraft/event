@@ -4,7 +4,7 @@ import (
 	"github.com/cognicraft/pubsub"
 )
 
-func (s *Store) SubscribeToStream(streamID string) Subscription {
+func (s *BasicStore) SubscribeToStream(streamID string) Subscription {
 	return &subscription{
 		store:    s,
 		streamID: streamID,
@@ -12,7 +12,7 @@ func (s *Store) SubscribeToStream(streamID string) Subscription {
 	}
 }
 
-func (s *Store) SubscribeToStreamFrom(streamID string, version uint64) Subscription {
+func (s *BasicStore) SubscribeToStreamFrom(streamID string, version uint64) Subscription {
 	return &subscription{
 		store:    s,
 		streamID: streamID,
@@ -20,7 +20,7 @@ func (s *Store) SubscribeToStreamFrom(streamID string, version uint64) Subscript
 	}
 }
 
-func (s *Store) SubscribeToStreamFromCurrent(streamID string) Subscription {
+func (s *BasicStore) SubscribeToStreamFromCurrent(streamID string) Subscription {
 	return &subscription{
 		store:    s,
 		streamID: streamID,
@@ -35,7 +35,7 @@ type Subscription interface {
 }
 
 type subscription struct {
-	store    *Store
+	store    *BasicStore
 	streamID string
 	from     uint64
 	done     chan struct{}

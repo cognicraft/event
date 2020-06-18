@@ -78,7 +78,7 @@ func main() {
 }
 
 func serve(bind string, dsn string) {
-	store, err := event.NewStore(dsn)
+	store, err := event.NewBasicStore(dsn)
 	if err != nil {
 		log.Fatalf("%+v", err)
 	}
@@ -107,7 +107,7 @@ func stream(stream string, follow bool, skip uint64) {
 }
 
 func replicate(source string, target string, follow bool) {
-	store, err := event.NewStore(target)
+	store, err := event.NewBasicStore(target)
 	defer store.Close()
 	vAll := store.Version(event.All)
 	streamer, err := event.NewStreamer(source, event.From(vAll))

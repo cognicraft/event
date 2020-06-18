@@ -125,7 +125,7 @@ func UserCodec() *Codec {
 }
 
 // Save can be used to dehydrate a User into an event store.
-func Save(store *Store, user *User, metadata interface{}) error {
+func Save(store Store, user *User, metadata interface{}) error {
 	// If there are no new changes nothing needs to be stored. The unit of work is empty.
 	if len(user.Changes()) == 0 {
 		return nil
@@ -154,7 +154,7 @@ func Save(store *Store, user *User, metadata interface{}) error {
 }
 
 // Load can be used to rehydrate a User from an event store.
-func Load(store *Store, uID UserID) (*User, error) {
+func Load(store Store, uID UserID) (*User, error) {
 	// We will use this codec to unmarshal event records to domain events.
 	codec := UserCodec()
 	// Create an empty user
@@ -331,7 +331,7 @@ func TestEventSourcedSystem(t *testing.T) {
 		t.Errorf("want: %v, got: %v", 2, n)
 	}
 
-	store, _ := NewStore(":memory:")
+	store, _ := NewBasicStore(":memory:")
 	defer store.Close()
 
 	projection := NewProjection()
@@ -414,5 +414,35 @@ func TestEventSourcedSystem(t *testing.T) {
 	if n := projection.TotalNumberOfNameChanges(); n != 4 {
 		t.Errorf("want: %v, got: %v", 4, n)
 	}
+}
 
+func TestSnapshots(t *testing.T) {
+	store, _ := NewBasicStore(":memory:")
+	snap := NewCache(store, UserCodec(), User{}, 1)
+	defer snap.Close()
+
+	u := NewUser()
+	u.Create("u-1")
+	u.ChangeName("user one")
+
+	Save(snap, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
+
+	u = NewUser()
+	if err := snap.LoadState("u-1", u); err != nil {
+		t.Errorf("expected no error: %v", err)
+	}
+	if u.Name != "user one" {
+		t.Errorf("want %s, got %s", "user one", u.Name)
+	}
+
+	u.ChangeName("user one altered")
+	Save(snap, u, Metadata{UserName: "admin", Correlation: "transaction:2"})
+
+	u = NewUser()
+	if err := snap.LoadState("u-1", u); err != nil {
+		t.Errorf("expected no error: %v", err)
+	}
+	if u.Name != "user one altered" {
+		t.Errorf("want %s, got %s", "user one altered", u.Name)
+	}
 }
