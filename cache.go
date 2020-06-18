@@ -2,20 +2,21 @@ package event
 
 import (
 	"encoding/json"
-	"reflect"
 	"sync"
 )
+
+type Constructor func() Mutator
 
 func NewCache(
 	store Store,
 	codec *Codec,
-	typ interface{},
+	new Constructor,
 	snapshotThreshold int,
 ) *Cache {
 	c := &Cache{
 		Store:             store,
 		codec:             codec,
-		typ:               reflect.TypeOf(typ),
+		new:               new,
 		snapshotThreshold: snapshotThreshold,
 		storage:           map[string]Snapshot{},
 	}
@@ -25,7 +26,7 @@ func NewCache(
 type Cache struct {
 	Store
 	codec             *Codec
-	typ               reflect.Type
+	new               Constructor
 	snapshotThreshold int
 	mu                sync.RWMutex
 	storage           map[string]Snapshot
@@ -37,9 +38,8 @@ func (c *Cache) Append(streamID string, expectedVersion uint64, records Records)
 		return err
 	}
 	if len(records) >= c.snapshotThreshold {
-		if m, ok := reflect.New(c.typ).Interface().(Mutator); ok {
-			c.LoadState(streamID, m)
-		}
+		m := c.new()
+		c.LoadState(streamID, m)
 	}
 	return nil
 }

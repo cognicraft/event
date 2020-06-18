@@ -416,19 +416,19 @@ func TestEventSourcedSystem(t *testing.T) {
 	}
 }
 
-func TestSnapshots(t *testing.T) {
+func TestCache(t *testing.T) {
 	store, _ := NewBasicStore(":memory:")
-	snap := NewCache(store, UserCodec(), User{}, 1)
-	defer snap.Close()
+	cache := NewCache(store, UserCodec(), func() Mutator { return NewUser() }, 1)
+	defer cache.Close()
 
 	u := NewUser()
 	u.Create("u-1")
 	u.ChangeName("user one")
 
-	Save(snap, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
+	Save(cache, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
 
 	u = NewUser()
-	if err := snap.LoadState("u-1", u); err != nil {
+	if err := cache.LoadState("u-1", u); err != nil {
 		t.Errorf("expected no error: %v", err)
 	}
 	if u.Name != "user one" {
@@ -436,10 +436,10 @@ func TestSnapshots(t *testing.T) {
 	}
 
 	u.ChangeName("user one altered")
-	Save(snap, u, Metadata{UserName: "admin", Correlation: "transaction:2"})
+	Save(cache, u, Metadata{UserName: "admin", Correlation: "transaction:2"})
 
 	u = NewUser()
-	if err := snap.LoadState("u-1", u); err != nil {
+	if err := cache.LoadState("u-1", u); err != nil {
 		t.Errorf("expected no error: %v", err)
 	}
 	if u.Name != "user one altered" {

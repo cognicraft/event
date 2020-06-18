@@ -12,6 +12,9 @@ type Store interface {
 	LoadFrom(streamID string, skip uint64) RecordStream
 	LoadSlice(streamID string, skip uint64, limit uint64) (*Slice, error)
 	Append(streamID string, expectedVersion uint64, records Records) error
+	SubscribeToStream(streamID string) Subscription
+	SubscribeToStreamFrom(streamID string, version uint64) Subscription
+	SubscribeToStreamFromCurrent(streamID string) Subscription
 }
 
 type Slice struct {
@@ -30,4 +33,10 @@ type OptimisticConcurrencyError struct {
 
 func (e OptimisticConcurrencyError) Error() string {
 	return fmt.Sprintf("optimistic-concurrency-error on stream %s expected version %d but actually got %d", e.Stream, e.Expected, e.Actual)
+}
+
+type Subscription interface {
+	Records() RecordStream
+	On(callback func(r Record))
+	Cancel() error
 }

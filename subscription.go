@@ -28,12 +28,6 @@ func (s *BasicStore) SubscribeToStreamFromCurrent(streamID string) Subscription 
 	}
 }
 
-type Subscription interface {
-	Records() RecordStream
-	On(callback func(r Record))
-	Cancel() error
-}
-
 type subscription struct {
 	store    *BasicStore
 	streamID string
