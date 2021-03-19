@@ -265,15 +265,6 @@ func setOptions(dsn string) string {
 	return fmt.Sprintf("%s?_foreign_keys=on&_journal_mode=WAL&_locking_mode=NORMAL&_synchronous=OFF", dsn)
 }
 
-func formatTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
-}
-
-func parseTime(raw string) time.Time {
-	t, _ := time.Parse(time.RFC3339Nano, raw)
-	return t
-}
-
 const initialize = `
 CREATE TABLE IF NOT EXISTS events (
   storeIndex INTEGER NOT NULL,
