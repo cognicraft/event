@@ -43,7 +43,7 @@ type User struct {
 	ID              UserID // The id of the User entity.
 	Version         uint64 // The current version of the User entity.
 	Name            string // The current name of the User entity.
-	*ChangeRecorder        // The ChangeRecorder is embeded to track changes as a uint of work.
+	*ChangeRecorder        // The ChangeRecorder is embeded to track changes as a unit of work.
 }
 
 // Create is a command that should be called first in the lifecycle of a User entity.
@@ -413,36 +413,5 @@ func TestEventSourcedSystem(t *testing.T) {
 	}
 	if n := projection.TotalNumberOfNameChanges(); n != 4 {
 		t.Errorf("want: %v, got: %v", 4, n)
-	}
-}
-
-func TestCache(t *testing.T) {
-	store, _ := NewBasicStore(":memory:")
-	cache := NewCache(store, UserCodec(), func() Mutator { return NewUser() }, 1)
-	defer cache.Close()
-
-	u := NewUser()
-	u.Create("u-1")
-	u.ChangeName("user one")
-
-	Save(cache, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
-
-	u = NewUser()
-	if err := cache.LoadState("u-1", u); err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if u.Name != "user one" {
-		t.Errorf("want %s, got %s", "user one", u.Name)
-	}
-
-	u.ChangeName("user one altered")
-	Save(cache, u, Metadata{UserName: "admin", Correlation: "transaction:2"})
-
-	u = NewUser()
-	if err := cache.LoadState("u-1", u); err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if u.Name != "user one altered" {
-		t.Errorf("want %s, got %s", "user one altered", u.Name)
 	}
 }
