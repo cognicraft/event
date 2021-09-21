@@ -4,36 +4,18 @@ import (
 	"github.com/cognicraft/pubsub"
 )
 
-func (s *BasicStore) SubscribeToStream(streamID string) Subscription {
-	return &subscription{
-		store:    s,
-		streamID: streamID,
-		from:     0,
-	}
-}
+type loadSliceFunc func(streamID string, skip uint64, limit uint64) (*Slice, error)
 
-func (s *BasicStore) SubscribeToStreamFrom(streamID string, version uint64) Subscription {
-	return &subscription{
-		store:    s,
-		streamID: streamID,
-		from:     version,
-	}
-}
-
-func (s *BasicStore) SubscribeToStreamFromCurrent(streamID string) Subscription {
-	return &subscription{
-		store:    s,
-		streamID: streamID,
-		from:     s.Version(streamID),
-	}
-}
+type subscribeFunc func(topic pubsub.Topic, callback func(topic pubsub.Topic, data interface{})) pubsub.Subscription
 
 type subscription struct {
-	store    *BasicStore
-	streamID string
-	from     uint64
-	done     chan struct{}
-	update   chan string
+	batchSize uint64
+	subscribe subscribeFunc
+	loadSlice loadSliceFunc
+	streamID  string
+	from      uint64
+	done      chan struct{}
+	update    chan string
 }
 
 func (s *subscription) Records() RecordStream {
@@ -49,7 +31,7 @@ func (s *subscription) Records() RecordStream {
 				case <-s.done:
 					return next
 				default:
-					slice, err := s.store.LoadSlice(streamID, next, limit)
+					slice, err := s.loadSlice(streamID, next, limit)
 					if err != nil {
 						return next
 					}
@@ -71,9 +53,9 @@ func (s *subscription) Records() RecordStream {
 			}
 		}
 		// catch up
-		next := enqeue(s.streamID, s.from, s.store.batchSize)
+		next := enqeue(s.streamID, s.from, s.batchSize)
 		// follow
-		changes := s.store.publisher.Subscribe(topicAppend, s.onAppend)
+		changes := s.subscribe(topicAppend, s.onAppend)
 		defer changes.Cancel()
 		for {
 			select {
@@ -81,7 +63,7 @@ func (s *subscription) Records() RecordStream {
 				close(s.update)
 				return
 			case <-s.update:
-				next = enqeue(s.streamID, next, s.store.batchSize)
+				next = enqeue(s.streamID, next, s.batchSize)
 			}
 		}
 	}()

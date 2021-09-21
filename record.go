@@ -43,3 +43,11 @@ func (rs Records) Stream() RecordStream {
 }
 
 type RecordStream <-chan Record
+
+func (rs RecordStream) Records() Records {
+	var out Records
+	for r := range rs {
+		out = append(out, r)
+	}
+	return out
+}
