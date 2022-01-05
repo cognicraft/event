@@ -32,6 +32,7 @@ type Feeder struct {
 
 func (f *Feeder) Page(url *url.URL) hyper.Item {
 	limit := f.PageSize
+	version := f.Store.Version(f.StreamID)
 	if qLimit := url.Query().Get(nLimit); qLimit != "" {
 		limit, _ = strconv.ParseUint(qLimit, 10, 64)
 		if limit < minPageSize {
@@ -39,14 +40,11 @@ func (f *Feeder) Page(url *url.URL) hyper.Item {
 		}
 	}
 	skip := uint64(0)
+	if np := numberOfPages(version, limit); np > 0 {
+		skip = (np - 1) * limit
+	}
 	if qSkip := url.Query().Get(nSkip); qSkip != "" {
 		skip, _ = strconv.ParseUint(qSkip, 10, 64)
-	}
-	if skip == 0 {
-		version := f.Store.Version(f.StreamID)
-		if np := numberOfPages(version, limit); np > 0 {
-			skip = (np - 1) * limit
-		}
 	}
 
 	page := hyper.Item{

@@ -14,3 +14,5 @@ github.com/cognicraft/uuid v0.1.0 h1:0zWkOFOTYA/MATdS98tz9sAhPNH3xIwVI1Id5uzufgM
 github.com/cognicraft/uuid v0.1.0/go.mod h1:sm03FRKkAglOr3fkM+5YuD6kfWJLZ6ZpkJ2ewzwkTeE=
 github.com/mattn/go-sqlite3 v1.14.9 h1:10HX2Td0ocZpYEjhilsuo6WWtUqttj2Kb0KtD86/KYA=
 github.com/mattn/go-sqlite3 v1.14.9/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
+github.com/mattn/go-sqlite3 v1.14.10 h1:MLn+5bFRlWMGoSRmJour3CL1w/qL96mvipqpwQW/Sfk=
+github.com/mattn/go-sqlite3 v1.14.10/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=

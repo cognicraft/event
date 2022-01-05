@@ -9,7 +9,7 @@ import (
 	"github.com/cognicraft/mux"
 )
 
-func NewServer(bind string, store *BasicStore) (*Server, error) {
+func NewServer(bind string, store Store) (*Server, error) {
 	s := &Server{
 		bind:   bind,
 		store:  store,
@@ -21,7 +21,7 @@ func NewServer(bind string, store *BasicStore) (*Server, error) {
 
 type Server struct {
 	bind              string
-	store             *BasicStore
+	store             Store
 	storeSubscription Subscription
 	router            *mux.Router
 	signal            mux.SignalFunc
@@ -57,6 +57,7 @@ func (s *Server) init() {
 
 func (s *Server) onRecord(r Record) {
 	s.signal(fmt.Sprintf("/streams/%s", r.OriginStreamID))
+	s.signal(fmt.Sprintf("/streams/%s", All))
 }
 
 func (s *Server) handleGET(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +118,7 @@ func (s *Server) handleGETStream(w http.ResponseWriter, r *http.Request) {
 				hyper.ActionParameter("append"),
 				{
 					Name:     "events",
-					Type:     "application/vnd.event+json",
+					Type:     "application/vnd.events+json",
 					Multiple: true,
 				},
 			},

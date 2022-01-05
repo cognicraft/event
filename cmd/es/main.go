@@ -92,11 +92,16 @@ func serve(bind string, dsn string) {
 }
 
 func stream(stream string, follow bool, skip uint64) {
-	streamer, _ := event.NewStreamer(stream)
-	if follow {
-		streamer.SetOption(event.Follow())
+	opts := []event.StreamerOption{
+		event.From(skip),
 	}
-	streamer.SetOption(event.From(skip))
+	if follow {
+		opts = append(opts, event.Follow())
+	}
+	streamer, err := event.NewStreamer(stream, opts...)
+	if err != nil {
+		log.Fatalf("%+v", err)
+	}
 	for e := range streamer.Stream() {
 		bs, err := json.Marshal(e)
 		if err != nil {
@@ -110,15 +115,14 @@ func replicate(source string, target string, follow bool) {
 	store, err := event.NewBasicStore(target)
 	defer store.Close()
 	vAll := store.Version(event.All)
-	streamer, err := event.NewStreamer(source, event.From(vAll))
-	if err != nil {
-		log.Fatalf("%+v", err)
+
+	opts := []event.StreamerOption{
+		event.From(vAll),
 	}
-	opts := []func(*event.Streamer) error{}
 	if follow {
 		opts = append(opts, event.Follow())
 	}
-	err = streamer.SetOption(opts...)
+	streamer, err := event.NewStreamer(source, opts...)
 	if err != nil {
 		log.Fatalf("%+v", err)
 	}

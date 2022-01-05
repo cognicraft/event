@@ -15,7 +15,9 @@ import (
 	"github.com/cognicraft/uri"
 )
 
-func NewStreamer(url string, options ...func(*Streamer) error) (*Streamer, error) {
+type StreamerOption func(*Streamer) error
+
+func NewStreamer(url string, opts ...StreamerOption) (*Streamer, error) {
 	s := &Streamer{
 		url:            url,
 		timeout:        30 * time.Second,
@@ -25,9 +27,10 @@ func NewStreamer(url string, options ...func(*Streamer) error) (*Streamer, error
 		stream:         make(chan Record),
 		done:           make(chan struct{}, 0),
 	}
-	err := s.SetOption(options...)
-	if err != nil {
-		return nil, err
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			return nil, err
+		}
 	}
 	s.reqCtx, s.reqCancel = context.WithCancel(context.Background())
 	if s.client == nil {
@@ -57,14 +60,6 @@ type Streamer struct {
 	reqCancel        context.CancelFunc
 }
 
-func (s *Streamer) SetOption(options ...func(*Streamer) error) error {
-	for _, opt := range options {
-		if err := opt(s); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 func UseClient(client *http.Client) func(*Streamer) error {
 	return func(s *Streamer) error {
 		s.client = client
@@ -325,8 +320,8 @@ func ContainsEventWithIndex(page hyper.Item, i uint64) bool {
 	return false
 }
 
-func SubscribeToStream(url string, auxOptions ...func(*Streamer) error) (Subscription, error) {
-	options := []func(*Streamer) error{
+func SubscribeToStream(url string, auxOptions ...StreamerOption) (Subscription, error) {
+	options := []StreamerOption{
 		Follow(),
 	}
 	options = append(options, auxOptions...)
@@ -341,8 +336,8 @@ func SubscribeToStream(url string, auxOptions ...func(*Streamer) error) (Subscri
 	}, nil
 }
 
-func SubscribeToStreamFrom(url string, version uint64, auxOptions ...func(*Streamer) error) (Subscription, error) {
-	options := []func(*Streamer) error{
+func SubscribeToStreamFrom(url string, version uint64, auxOptions ...StreamerOption) (Subscription, error) {
+	options := []StreamerOption{
 		Follow(),
 		From(version),
 	}
