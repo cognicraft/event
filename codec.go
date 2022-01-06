@@ -52,7 +52,7 @@ func IDByField(fieldName string) ExtractIDFunc {
 }
 
 var (
-	DefaultExtractID = IDByField("ID")
+	defaultExtractID = IDByField("ID")
 )
 
 // NewCodec creates a new Codec to encode Events into Records and decode
@@ -65,7 +65,7 @@ func NewCodec(opts ...CodecOption) *Codec {
 		opt(c)
 	}
 	if c.extractID == nil {
-		c.extractID = DefaultExtractID
+		c.extractID = defaultExtractID
 	}
 	return c
 }
