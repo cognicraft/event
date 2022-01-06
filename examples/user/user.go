@@ -1,12 +1,11 @@
-package event
+package user
 
 import (
 	"fmt"
-	"reflect"
 	"sync"
-	"testing"
 	"time"
 
+	"github.com/cognicraft/event"
 	"github.com/cognicraft/uuid"
 )
 
@@ -34,16 +33,16 @@ type NameChanged struct {
 // NewUser creates a User entity.
 func NewUser() *User {
 	return &User{
-		ChangeRecorder: NewChangeRecorder(),
+		ChangeRecorder: event.NewChangeRecorder(),
 	}
 }
 
 // User is an event sourced entity.
 type User struct {
-	ID              UserID // The id of the User entity.
-	Version         uint64 // The current version of the User entity.
-	Name            string // The current name of the User entity.
-	*ChangeRecorder        // The ChangeRecorder is embeded to track changes as a unit of work.
+	ID                    UserID // The id of the User entity.
+	Version               uint64 // The current version of the User entity.
+	Name                  string // The current name of the User entity.
+	*event.ChangeRecorder        // The ChangeRecorder is embeded to track changes as a unit of work.
 }
 
 // Create is a command that should be called first in the lifecycle of a User entity.
@@ -96,13 +95,13 @@ func (u *User) ChangeName(name string) error {
 }
 
 // Apply should be called to apply a new Event to the User entity model.
-func (u *User) Apply(e Event) {
+func (u *User) Apply(e event.Event) {
 	u.Record(e) // New Events need to be recorded to enable a unit of work for later storage in an event store.
 	u.Mutate(e) // Based on the new Event the user model must mutate.
 }
 
 // Mutate should be called for each event in the users history.
-func (u *User) Mutate(e Event) {
+func (u *User) Mutate(e event.Event) {
 	u.Version++ // Any event will increase the users version number by 1.
 
 	// Each event will have some values that are usefull for business rule validation.
@@ -117,15 +116,15 @@ func (u *User) Mutate(e Event) {
 }
 
 // UserCodec is used for un-/marshaling puroposes.
-func UserCodec() *Codec {
-	c := NewCodec()
+func UserCodec() *event.Codec {
+	c := event.NewCodec()
 	c.Register("user:created", Created{})
 	c.Register("user:name-changed", NameChanged{})
 	return c
 }
 
 // Save can be used to dehydrate a User into an event store.
-func Save(store Store, user *User, metadata interface{}) error {
+func Save(store event.Store, user *User, metadata interface{}) error {
 	// If there are no new changes nothing needs to be stored. The unit of work is empty.
 	if len(user.Changes()) == 0 {
 		return nil
@@ -139,7 +138,7 @@ func Save(store Store, user *User, metadata interface{}) error {
 	// We will use this codec to marshal the events as event records
 	codec := UserCodec()
 	// Encode all events in the unit of work.
-	recs, err := codec.EncodeAll(user.Changes(), WithMetadata(metadata))
+	recs, err := codec.EncodeAll(user.Changes(), event.WithMetadata(metadata))
 	if err != nil {
 		return err
 	}
@@ -154,7 +153,7 @@ func Save(store Store, user *User, metadata interface{}) error {
 }
 
 // Load can be used to rehydrate a User from an event store.
-func Load(store Store, uID UserID) (*User, error) {
+func Load(store event.Store, uID UserID) (*User, error) {
 	// We will use this codec to unmarshal event records to domain events.
 	codec := UserCodec()
 	// Create an empty user
@@ -200,7 +199,7 @@ type Projection struct {
 }
 
 // On should be called for each event in history.
-func (p *Projection) On(rec Record) {
+func (p *Projection) On(rec event.Record) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	codec := UserCodec()          // We will use this codec to unmarshal event records to domain events.
@@ -265,153 +264,4 @@ type Metadata struct {
 	UserName    string `json:"user-name,omitempty"`
 	Causation   string `json:"causation,omitempty"`
 	Correlation string `json:"correlation,omitempty"`
-}
-
-func TestEventSourcedSystem(t *testing.T) {
-	var err error
-	u := NewUser()
-	if u.ID != "" {
-		t.Errorf("want: %v, got: %v", "", u.ID)
-	}
-	if u.Version != 0 {
-		t.Errorf("want: %v, got: %v", 0, u.Version)
-	}
-
-	err = u.ChangeName("")
-	if err == nil {
-		t.Errorf("expected an error")
-	}
-
-	err = u.Create("user-1")
-	if err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if u.ID != "user-1" {
-		t.Errorf("want: %v, got: %v", "user-1", u.ID)
-	}
-	if u.Version != 1 {
-		t.Errorf("want: %v, got: %v", 1, u.Version)
-	}
-	if n := len(u.Changes()); n != 1 {
-		t.Errorf("want: %v, got: %v", 1, n)
-	}
-
-	err = u.Create("e")
-	if err == nil {
-		t.Errorf("expected an error")
-	}
-	if u.ID != "user-1" {
-		t.Errorf("want: %v, got: %v", "user-1", u.ID)
-	}
-	if u.Version != 1 {
-		t.Errorf("want: %v, got: %v", 1, u.Version)
-	}
-	if n := len(u.Changes()); n != 1 {
-		t.Errorf("want: %v, got: %v", 1, n)
-	}
-
-	err = u.ChangeName("")
-	if err == nil {
-		t.Errorf("expected an error")
-	}
-	err = u.ChangeName("User-1")
-	if err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if u.ID != "user-1" {
-		t.Errorf("want: %v, got: %v", "user-1", u.ID)
-	}
-	if u.Version != 2 {
-		t.Errorf("want: %v, got: %v", 2, u.Version)
-	}
-	if u.Name != "User-1" {
-		t.Errorf("want: %v, got: %v", "User-1", u.Name)
-	}
-	if n := len(u.Changes()); n != 2 {
-		t.Errorf("want: %v, got: %v", 2, n)
-	}
-
-	store, _ := NewBasicStore(":memory:")
-	defer store.Close()
-
-	projection := NewProjection()
-	sub := store.SubscribeToStream(All)
-	defer sub.Cancel()
-	sub.On(projection.On)
-
-	err = Save(store, u, Metadata{UserName: "admin", Correlation: "transaction:1"})
-	if err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if n := len(u.Changes()); n != 0 {
-		t.Errorf("want: %v, got: %v", 0, n)
-	}
-
-	var lu *User
-	lu, err = Load(store, "e")
-	if err == nil {
-		t.Errorf("expected an error, since user e should not exist")
-	}
-	if lu != nil {
-		t.Errorf("expected a nil user: %v", lu)
-	}
-	lu, err = Load(store, "user-1")
-	if err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-	if !reflect.DeepEqual(u, lu) {
-		t.Errorf("expected original to be equal to loaded")
-	}
-
-	// give the projection time to become consistent
-	time.Sleep(100 * time.Millisecond)
-
-	if projection.IsUserNameInUse("e") {
-		t.Errorf("expected %v to not be in use", "e")
-	}
-	if !projection.IsUserNameInUse("User-1") {
-		t.Errorf("expected %v to be in use", "User-1")
-	}
-	if n := projection.UserName("user-1"); n != "User-1" {
-		t.Errorf("want: %s, got: %s", "User-1", n)
-	}
-	if n := projection.NumberOfNameChangesForUser("user-1"); n != 1 {
-		t.Errorf("want: %v, got: %v", 1, n)
-	}
-	if n := projection.TotalNumberOfNameChanges(); n != 1 {
-		t.Errorf("want: %v, got: %v", 1, n)
-	}
-
-	u2 := NewUser()
-	u2.Create("user-2")
-	u2.ChangeName("False Name")
-	u2.ChangeName("User2")
-	u2.ChangeName("User-2")
-
-	err = Save(store, u2, Metadata{UserName: "admin", Correlation: "transaction:2"})
-	if err != nil {
-		t.Errorf("expected no error: %v", err)
-	}
-
-	// give the projection time to become consistent
-	time.Sleep(100 * time.Millisecond)
-
-	if projection.IsUserNameInUse("False Name") {
-		t.Errorf("expected %v to not be in use", "False Name")
-	}
-	if projection.IsUserNameInUse("User2") {
-		t.Errorf("expected %v to not be in use", "User2")
-	}
-	if !projection.IsUserNameInUse("User-2") {
-		t.Errorf("expected %v to be in use", "User-2")
-	}
-	if n := projection.UserName("user-2"); n != "User-2" {
-		t.Errorf("want: %s, got: %s", "User-2", n)
-	}
-	if n := projection.NumberOfNameChangesForUser("user-2"); n != 3 {
-		t.Errorf("want: %v, got: %v", 3, n)
-	}
-	if n := projection.TotalNumberOfNameChanges(); n != 4 {
-		t.Errorf("want: %v, got: %v", 4, n)
-	}
 }

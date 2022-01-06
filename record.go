@@ -52,7 +52,7 @@ func (rs RecordStream) Records() Records {
 	return out
 }
 
-func Chunked(in RecordStream, batchSize int, timeout time.Duration) <-chan Records {
+func ChunkedRecordStream(in RecordStream, batchSize int, timeout time.Duration) <-chan Records {
 	out := make(chan Records)
 
 	go func() {

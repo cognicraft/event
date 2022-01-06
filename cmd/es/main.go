@@ -128,7 +128,7 @@ func replicate(source string, target string, follow bool) {
 		log.Fatalf("%+v", err)
 	}
 
-	for records := range event.Chunked(streamer.Stream(), 100, 250*time.Millisecond) {
+	for records := range event.ChunkedRecordStream(streamer.Stream(), 100, 250*time.Millisecond) {
 		if event.All != records[0].StreamID {
 			log.Fatalf("replicate is only allowed for %s stream", event.All)
 		}

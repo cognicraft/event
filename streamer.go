@@ -142,7 +142,7 @@ func (s *Streamer) run() {
 			var etag string
 			var err error
 			if e.etag == "" {
-				page, etag, err = s.getPage(Request(e.url))
+				page, etag, err = s.getPage(request(e.url))
 				if err != nil {
 					if s.reqCtx.Err() == context.Canceled {
 						return
@@ -150,7 +150,7 @@ func (s *Streamer) run() {
 					time.Sleep(time.Millisecond * 500)
 				}
 			} else {
-				page, etag, err = s.getPage(LongPollRequest(e.url, e.etag, s.timeout))
+				page, etag, err = s.getPage(longPollRequest(e.url, e.etag, s.timeout))
 				if err != nil {
 					if s.reqCtx.Err() == context.Canceled {
 						return
@@ -162,7 +162,7 @@ func (s *Streamer) run() {
 				}
 			}
 
-			for e := range Stream(page) {
+			for e := range pageToStream(page) {
 				if e.StreamIndex < currentVersion {
 					// skip
 					continue
@@ -188,7 +188,7 @@ func (s *Streamer) run() {
 }
 
 func (s *Streamer) findCurrentVersion() uint64 {
-	page, _, err := s.getPage(Request(s.url))
+	page, _, err := s.getPage(request(s.url))
 	if err != nil {
 		return 0
 	}
@@ -205,7 +205,7 @@ func (s *Streamer) findCurrentVersion() uint64 {
 func (s *Streamer) findStart() *entry {
 	url := s.url
 	for {
-		page, _, err := s.getPage(Request(url))
+		page, _, err := s.getPage(request(url))
 		if err != nil {
 			return nil
 		}
@@ -258,7 +258,7 @@ func (s *Streamer) getPage(req *http.Request) (hyper.Item, string, error) {
 	}
 }
 
-func Stream(page hyper.Item) RecordStream {
+func pageToStream(page hyper.Item) RecordStream {
 	out := make(chan Record)
 	go func() {
 		defer close(out)
@@ -277,7 +277,7 @@ func Stream(page hyper.Item) RecordStream {
 	return out
 }
 
-func Request(url string) *http.Request {
+func request(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		panic(err)
@@ -286,7 +286,7 @@ func Request(url string) *http.Request {
 	return req
 }
 
-func LongPollRequest(url string, etag string, timeout time.Duration) *http.Request {
+func longPollRequest(url string, etag string, timeout time.Duration) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		panic(err)
