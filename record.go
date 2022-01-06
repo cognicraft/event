@@ -51,3 +51,37 @@ func (rs RecordStream) Records() Records {
 	}
 	return out
 }
+
+func Chunked(in RecordStream, batchSize int, timeout time.Duration) <-chan Records {
+	out := make(chan Records)
+
+	go func() {
+		defer close(out)
+
+		var current Records
+		dispatch := func() {
+			if len(current) > 0 {
+				out <- current
+				current = nil
+			}
+		}
+
+		for {
+			select {
+			case <-time.After(timeout):
+				dispatch()
+			case r, ok := <-in:
+				if !ok {
+					dispatch()
+					return
+				}
+				current = append(current, r)
+				if len(current) >= batchSize {
+					dispatch()
+				}
+			}
+		}
+	}()
+
+	return out
+}

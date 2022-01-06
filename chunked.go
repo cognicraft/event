@@ -147,7 +147,7 @@ func (s *ChunkedStore) LoadSlice(streamID string, skip uint64, limit uint64) (*S
 
 func (s *ChunkedStore) Append(streamID string, expectedVersion uint64, records Records) error {
 	if All == streamID {
-		return fmt.Errorf("cannot append to all stream")
+		return s.appendToStore(expectedVersion, records)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -191,15 +191,69 @@ func (s *ChunkedStore) Append(streamID string, expectedVersion uint64, records R
 			next = toAppend[:rem]
 			toAppend = toAppend[rem:]
 		}
-		if err := c.append(next); err != nil {
+		sv, err := c.append(next)
+		if err != nil {
 			return err
 		}
-		if err := s.updateIndex(storeVersion, c.id, streamID, next[0].StreamIndex, next[len(next)-1].StreamIndex); err != nil {
+		if err := s.updateIndex(sv, c.id, streamID, next[0].StreamIndex, next[len(next)-1].StreamIndex); err != nil {
 			return err
 		}
 	}
 	if err == nil {
 		s.publisher.Publish(topicAppend, streamID)
+	}
+	return nil
+}
+
+func (s *ChunkedStore) appendToStore(expectedVersion uint64, records Records) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	c, err := s.lastChunk()
+	if err != nil {
+		return err
+	}
+
+	storeVersion := s.Version(All)
+	if storeVersion != expectedVersion {
+		return OptimisticConcurrencyError{Stream: All, Expected: expectedVersion, Actual: storeVersion}
+	}
+
+	updatedStreams := map[string]bool{}
+
+	for _, streamRecords := range partitionByOriginStreamID(records) {
+		toAppend := streamRecords
+		for len(toAppend) > 0 {
+			rem := int(c.remaining())
+			if rem == 0 {
+				if c, err = s.nextChunk(); err != nil {
+					return err
+				}
+				continue
+			}
+			var next Records
+			if len(toAppend) <= rem {
+				next = toAppend
+				toAppend = nil
+			} else {
+				next = toAppend[:rem]
+				toAppend = toAppend[rem:]
+			}
+			sv, err := c.append(next)
+			if err != nil {
+				return err
+			}
+			if err := s.updateIndex(sv, c.id, next[0].StreamID, next[0].StreamIndex, next[len(next)-1].StreamIndex); err != nil {
+				return err
+			}
+			updatedStreams[next[0].StreamID] = true
+		}
+	}
+
+	if err == nil {
+		for streamID := range updatedStreams {
+			s.publisher.Publish(topicAppend, streamID)
+		}
 	}
 	return nil
 }
@@ -374,7 +428,7 @@ func (c *writeChunk) remaining() uint64 {
 	return uint64(c.id+1)*c.store.chunkSize - sv
 }
 
-func (c *writeChunk) append(records Records) error {
+func (c *writeChunk) append(records Records) (uint64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	storeVersion := c.version()
@@ -389,7 +443,7 @@ func (c *writeChunk) append(records Records) error {
 		}
 		return nil
 	})
-	return err
+	return storeVersion, err
 }
 
 type readChunk struct {
@@ -434,6 +488,28 @@ func (c *readChunk) loadRecords(streamID string, skip uint64, limit uint64) (Rec
 	}
 	defer rows.Close()
 	return records(rows)
+}
+
+func partitionByOriginStreamID(rs Records) []Records {
+	var out []Records
+	var currentOriginStreamID string
+	var currentPartition Records
+	for _, r := range rs {
+		if currentOriginStreamID != r.OriginStreamID {
+			if currentPartition != nil {
+				out = append(out, currentPartition)
+			}
+			currentOriginStreamID = r.OriginStreamID
+			currentPartition = Records{}
+		}
+		r.StreamID = r.OriginStreamID
+		r.StreamIndex = r.OriginStreamIndex
+		currentPartition = append(currentPartition, r)
+	}
+	if currentPartition != nil {
+		out = append(out, currentPartition)
+	}
+	return out
 }
 
 const initialize_index = `

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/cognicraft/event"
 )
@@ -127,8 +128,11 @@ func replicate(source string, target string, follow bool) {
 		log.Fatalf("%+v", err)
 	}
 
-	for record := range streamer.Stream() {
-		err := store.Append(record.OriginStreamID, record.OriginStreamIndex, event.Records{record})
+	for records := range event.Chunked(streamer.Stream(), 100, 250*time.Millisecond) {
+		if event.All != records[0].StreamID {
+			log.Fatalf("replicate is only allowed for %s stream", event.All)
+		}
+		err := store.Append(records[0].StreamID, records[0].StreamIndex, records)
 		if err != nil {
 			log.Fatalf("%+v", err)
 		}

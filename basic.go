@@ -137,7 +137,7 @@ func (s *BasicStore) LoadSlice(streamID string, skip uint64, limit uint64) (*Sli
 
 func (s *BasicStore) Append(streamID string, expectedVersion uint64, records Records) error {
 	if All == streamID {
-		return fmt.Errorf("cannot append to all stream")
+		return s.appendToStore(expectedVersion, records)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -174,6 +174,39 @@ func (s *BasicStore) Append(streamID string, expectedVersion uint64, records Rec
 	})
 	if err == nil {
 		s.publisher.Publish(topicAppend, streamID)
+	}
+	return err
+}
+
+func (s *BasicStore) appendToStore(expectedVersion uint64, records Records) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	updatedStreams := map[string]bool{}
+
+	err := sqlutil.Transact(s.db, func(tx *sql.Tx) error {
+
+		storeVersion := uint64(0)
+		row := tx.QueryRow(`SELECT (storeIndex+1) as version FROM events ORDER BY storeIndex DESC LIMIT 1;`)
+		row.Scan(&storeVersion)
+
+		if storeVersion != expectedVersion {
+			return OptimisticConcurrencyError{Stream: All, Expected: expectedVersion, Actual: storeVersion}
+		}
+
+		for _, e := range records {
+			if _, err := tx.Exec(`INSERT INTO events (storeIndex, streamID, streamIndex, recordedOn, id, type, data, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+				e.StreamIndex, e.OriginStreamID, e.OriginStreamIndex, formatTime(e.RecordedOn), e.ID, e.Type, []byte(e.Data), []byte(e.Metadata)); err != nil {
+				return err
+			}
+			updatedStreams[e.OriginStreamID] = true
+		}
+		return nil
+	})
+	if err == nil {
+		for streamID := range updatedStreams {
+			s.publisher.Publish(topicAppend, streamID)
+		}
 	}
 	return err
 }
