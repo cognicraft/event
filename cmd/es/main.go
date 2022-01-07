@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -85,11 +86,14 @@ func serve(bind string, dsn string) {
 	}
 	defer store.Close()
 
-	server, err := event.NewServer(bind, store)
+	server, err := event.NewServer(store)
 	if err != nil {
 		log.Fatalf("%+v", err)
 	}
-	server.Run()
+	err = http.ListenAndServe(bind, server)
+	if err != nil {
+		log.Fatalf("%+v", err)
+	}
 }
 
 func stream(stream string, follow bool, skip uint64) {

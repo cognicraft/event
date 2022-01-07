@@ -2,16 +2,14 @@ package event
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/cognicraft/hyper"
 	"github.com/cognicraft/mux"
 )
 
-func NewServer(bind string, store Store) (*Server, error) {
+func NewServer(store Store) (*Server, error) {
 	s := &Server{
-		bind:   bind,
 		store:  store,
 		router: mux.New(),
 	}
@@ -20,16 +18,14 @@ func NewServer(bind string, store Store) (*Server, error) {
 }
 
 type Server struct {
-	bind              string
 	store             Store
 	storeSubscription Subscription
 	router            *mux.Router
 	signal            mux.SignalFunc
 }
 
-func (s *Server) Run() error {
-	log.Printf("binding to '%s'", s.bind)
-	return http.ListenAndServe(s.bind, s.router)
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
 }
 
 func (s *Server) Close() error {
