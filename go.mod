@@ -10,5 +10,5 @@ require (
 	github.com/cognicraft/sqlutil v0.1.0
 	github.com/cognicraft/uri v0.1.0
 	github.com/cognicraft/uuid v0.1.0
-	github.com/mattn/go-sqlite3 v1.14.10
+	github.com/mattn/go-sqlite3 v1.14.12
 )
